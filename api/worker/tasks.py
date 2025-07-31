@@ -1,11 +1,11 @@
 from datetime import datetime
-
+from typing import Dict, Any
 import httpx
 import redis
 
 from api.config import settings
-
-from ..config import app_celery, default_tbl, fallback_tbl
+from ..config import app_celery
+from ..config.duck_db import insert_payment
 
 REDIS_URL = settings.REDIS_URL
 PAYMENT_DEFAULT = settings.PAYMENT_PROCESSOR_DEFAULT
@@ -26,7 +26,7 @@ http_client = httpx.Client(
 )
 
 
-def task_process(url, data, type, now) -> bool:
+def task_process(url: str, data: Dict[str, Any], processor_type: str) -> bool:
     try:
         headers = {
             "Content-Type": "application/json",
@@ -36,47 +36,43 @@ def task_process(url, data, type, now) -> bool:
         response = http_client.post(url, json=data, headers=headers)
         response.raise_for_status()
 
-        data_db = {
-            "id": data.get("correlationId"),
-            "valor": data.get("amount"),
-            "data": now.strftime("%Y-%m-%d %H:%M:%S"),
-        }
+        payment_data = {"id": data.get("correlationId"), "amount": data.get("amount"), "requested_at": data.get("requestedAt")}
 
-        if type == "default":
-            default_tbl.insert(data_db)
-        else:
-            fallback_tbl.insert(data_db)
+        table_name = f"{processor_type}_payments"
 
-        return True
-    except (httpx.HTTPStatusError, httpx.RequestError) as exc:
-        print(f"Error processing {type} payment: {exc}")
+        return insert_payment(table_name, payment_data)
+
+    except Exception as exc:
+        print(f"Erro ao processar o pagamento com o processador {processor_type}: {exc}")
         return False
 
 
 @app_celery.task(name="payment_process", bind=True, max_retries=2, default_retry_delay=5)
-def payment_process(self, data: dict):
+def payment_process(self, data: Dict[str, Any]) -> Dict[str, Any]:
     try:
         amount = data.get("amount", 0)
         code = data.get("correlationId", "default_correlation_id")
         now = datetime.now()
 
-        defaut_url = f"{PAYMENT_DEFAULT}/payments"
+        default_url = f"{PAYMENT_DEFAULT}/payments"
         fallback_url = f"{PAYMENT_FALLBACK}/payments"
 
-        data_json = {
+        payment_data = {
             "correlationId": code,
             "amount": amount,
-            "requestedAt": now.isoformat(),
+            "requestedAt": now.isoformat() + "Z",
         }
 
-        response_default = task_process(defaut_url, data_json, "default", now)
+        response_default = task_process(default_url, payment_data, "default")
 
         if not response_default:
-            response_fallback = task_process(fallback_url, data_json, "fallback", now)
-            if not response_fallback:
-                raise Exception("Both default and fallback payment processors failed")
+            response_fallback = task_process(fallback_url, payment_data, "fallback")
 
-        return {"status": "success", "message": "Payment processed"}
+            if not response_fallback:
+                raise Exception("Não foi possível processar o pagamento com nenhum dos processadores disponíveis")
+
+        return {"status": "success", "message": "Pagamento processado com sucesso"}
+
     except Exception as e:
-        print(f"Retrying payment process due to: {e}")
+        print(f"Reprocessar o pagamento devido ao erro: {e}")
         self.retry(exc=e)

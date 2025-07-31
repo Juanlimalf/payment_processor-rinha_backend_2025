@@ -1430,18 +1430,6 @@ anyio = ">=3.6.2,<5"
 full = ["httpx (>=0.27.0,<0.29.0)", "itsdangerous", "jinja2", "python-multipart (>=0.0.18)", "pyyaml"]
 
 [[package]]
-name = "tinydb"
-version = "4.8.2"
-description = "TinyDB is a tiny, document oriented database optimized for your happiness :)"
-optional = false
-python-versions = "<4.0,>=3.8"
-groups = ["main"]
-files = [
-    {file = "tinydb-4.8.2-py3-none-any.whl", hash = "sha256:f97030ee5cbc91eeadd1d7af07ab0e48ceb04aa63d4a983adbaca4cba16e86c3"},
-    {file = "tinydb-4.8.2.tar.gz", hash = "sha256:f7dfc39b8d7fda7a1ca62a8dbb449ffd340a117c1206b68c50b1a481fb95181d"},
-]
-
-[[package]]
 name = "typer"
 version = "0.16.0"
 description = "Typer, build great CLIs. Easy to code. Based on Python type hints."
@@ -1820,4 +1808,4 @@ files = [
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.13,<4.0"
-content-hash = "caf1ec0ab40103b5a24514fa213cc9b2a778a154cdf721a14f3b6feaefa8180f"
+content-hash = "eaa621fb6b749f411d3fcb55baf05cb2a84401c6797cf1a737518135bef34499"
