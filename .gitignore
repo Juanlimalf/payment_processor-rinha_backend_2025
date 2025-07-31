@@ -1,0 +1,6 @@
+# Arquivo .gitignore para o domínio app
+__pycache__/
+*.pyc
+.env
+.vscode/
+rinha-test/

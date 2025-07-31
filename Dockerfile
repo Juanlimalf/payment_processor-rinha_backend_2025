@@ -1,0 +1,15 @@
+FROM python:3.13-slim
+
+WORKDIR /app
+
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONHASHSEED=random
+ENV PIP_NO_CACHE_DIR=1
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1
+
+COPY . .
+
+RUN pip install -r requirements.txt
+
+CMD ["sh", "-c", "python main.py"]
