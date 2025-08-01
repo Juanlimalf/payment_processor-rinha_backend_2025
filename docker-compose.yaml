@@ -7,10 +7,11 @@ x-services-template:
       - .:/app
     depends_on:
       - redis
+      - postgres
     restart: unless-stopped
     environment:
       - REDIS_URL=redis://redis:6379
-      - DATABASE_URL=postgres://postgres:postgres@postgres:5432/postgres
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/postgres
       - PAYMENT_PROCESSOR_DEFAULT=http://payment-processor-default:8080
       - PAYMENT_PROCESSOR_FALLBACK=http://payment-processor-fallback:8080
 
@@ -20,21 +21,26 @@ x-services-template:
     deploy:
       resources:
         limits:
-          cpus: '0.28'
-          memory: 78M
+          cpus: '0.31'
+          memory: 89M
 
   worker: &worker
     <<: *api
-    command: celery -A api.config.celery_app worker --loglevel=info --concurrency=1
+    command: celery -A api.config.celery_app worker --loglevel=error
     networks:
       - api
       - payment-processor
-
+    
+    depends_on:
+      - redis
+      - postgres
+      - api
+      - api2
     deploy:
       resources:
         limits:
-          cpus: '0.28'
-          memory: 76M
+          cpus: '0.31'
+          memory: 98M
 
 services:
   api:
@@ -49,9 +55,6 @@ services:
     <<: *worker
     container_name: worker
 
-  worker2:
-    <<: *worker
-    container_name: worker2
 
   nginx:
     image: nginx:latest
@@ -79,14 +82,29 @@ services:
     networks:
       - api
     command: ["redis-server", "--appendonly", "yes", "--appendfsync", "everysec"]
-    ports:
-      - "6379:6379"
     deploy:
       resources:
         limits:
           cpus: '0.19'
           memory: 24M
 
+  postgres:
+    image: postgres:15.1
+    container_name: postgres
+    restart: unless-stopped
+    networks:
+      - api
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=postgres
+    deploy:
+      resources:
+        limits:
+          cpus: '0.19'
+          memory: 34M
 
 networks:
   api:

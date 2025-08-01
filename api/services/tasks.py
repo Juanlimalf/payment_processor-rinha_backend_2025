@@ -1,11 +1,19 @@
+import re
 from datetime import datetime
-from typing import Dict, Any
+from typing import Any, Dict
+
 import httpx
 import redis
+from sqlalchemy.orm import Session
 
 from api.config import settings
-from ..config import app_celery
-from ..config.duck_db import insert_payment
+from api.models.model import PaymentModel
+
+from ..config import PostgresDB, app_celery
+
+connection = PostgresDB()
+session = next(connection.get_session())
+
 
 REDIS_URL = settings.REDIS_URL
 PAYMENT_DEFAULT = settings.PAYMENT_PROCESSOR_DEFAULT
@@ -26,7 +34,7 @@ http_client = httpx.Client(
 )
 
 
-def task_process(url: str, data: Dict[str, Any], processor_type: str) -> bool:
+def task_process(url: str, data: Dict[str, Any], processor_type: str, now: datetime) -> bool:
     try:
         headers = {
             "Content-Type": "application/json",
@@ -34,13 +42,27 @@ def task_process(url: str, data: Dict[str, Any], processor_type: str) -> bool:
         }
 
         response = http_client.post(url, json=data, headers=headers)
-        response.raise_for_status()
 
-        payment_data = {"id": data.get("correlationId"), "amount": data.get("amount"), "requested_at": data.get("requestedAt")}
+        if response.status_code == 422:
+            print("Pagamento já processado anteriormente")
+            return True
 
-        table_name = f"{processor_type}_payments"
+        if response.status_code != 200:
+            print(f"Pagamento processado com sucesso com o processador {processor_type}")
+            return False
 
-        return insert_payment(table_name, payment_data)
+        payment = PaymentModel(
+            correlationId=data.get("correlationId"),
+            amount=data.get("amount"),
+            processor_type=processor_type,
+            requested_at=now,
+        )
+
+        session.add(payment)
+        session.commit()
+        session.refresh(payment)
+
+        return True
 
     except Exception as exc:
         print(f"Erro ao processar o pagamento com o processador {processor_type}: {exc}")
@@ -63,10 +85,10 @@ def payment_process(self, data: Dict[str, Any]) -> Dict[str, Any]:
             "requestedAt": now.isoformat() + "Z",
         }
 
-        response_default = task_process(default_url, payment_data, "default")
+        response_default = task_process(default_url, payment_data, "default", now)
 
         if not response_default:
-            response_fallback = task_process(fallback_url, payment_data, "fallback")
+            response_fallback = task_process(fallback_url, payment_data, "fallback", now)
 
             if not response_fallback:
                 raise Exception("Não foi possível processar o pagamento com nenhum dos processadores disponíveis")

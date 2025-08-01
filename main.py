@@ -1,10 +1,24 @@
+from contextlib import asynccontextmanager
+
 import uvicorn
 from fastapi import FastAPI
 
 from api import app_router
-from api.config import settings
+from api.config.postgres import Base, PostgresDB
 
-print(settings.REDIS_URL)
+
+@asynccontextmanager
+async def start_db(app: FastAPI):
+    print("Starting database")
+    connection = PostgresDB()
+
+    engine = connection.get_engine()
+    Base.metadata.create_all(engine)
+    yield
+
+    print("Closing database")
+    engine.dispose()
+
 
 app = FastAPI(
     docs_url=None,
@@ -12,6 +26,7 @@ app = FastAPI(
     openapi_url=None,
     title="Payment Processor API",
     description="API for processing payments in the Rinha de Backend",
+    lifespan=start_db,
 )
 
 app.include_router(app_router)

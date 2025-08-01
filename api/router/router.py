@@ -1,9 +1,12 @@
 from typing import Any, Optional
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy.orm import Session
 
-from api.worker.summary import get_summary, purge_summary
-from api.worker.tasks import payment_process
+from api.config import PostgresDB
+from api.schemas.schema import Payment, Summary
+from api.services.payments import PaymentService
+from api.services.tasks import payment_process
 
 router = APIRouter()
 
@@ -13,21 +16,25 @@ PAYMENT_RESPONSE = {
     "status": "processing",
 }
 
+connection = PostgresDB()
+session = next(connection.get_session())
+
+
+def get_service():
+    return PaymentService(session)
+
 
 @router.post("/payments")
-async def router_app(
-    payload: dict[str, Any],
-):
-    payment_process.delay(payload)
+async def router_app(payload: Payment):
+    payment_process.delay(payload.model_dump())
     return PAYMENT_RESPONSE
 
 
 @router.get("/payments-summary")
-async def router_app_sumary(from_: Optional[str] = Query(None, alias="from"), to: Optional[str] = Query(None, alias="to")):
-    print(from_, to)
-    return get_summary(from_, to)
+async def router_app_sumary(from_: Optional[str] = Query(None, alias="from"), to: Optional[str] = Query(None, alias="to"), service: PaymentService = Depends(get_service)) -> Summary:
+    return service.get_summary(from_, to)
 
 
 @router.post("/payments-purge")
-async def router_app_purge():
-    return purge_summary()
+async def router_app_purge(service: PaymentService = Depends(get_service)) -> None:
+    service.purge_database()
