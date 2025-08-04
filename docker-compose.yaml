@@ -23,7 +23,7 @@ x-services-template:
       resources:
         limits:
           cpus: '0.3'
-          memory: 100M
+          memory: 90M
 
   worker: &worker
     build:
@@ -116,7 +116,7 @@ services:
       resources:
         limits:
           cpus: '0.20'
-          memory: 30M 
+          memory: 40M 
 
 networks:
   api:
