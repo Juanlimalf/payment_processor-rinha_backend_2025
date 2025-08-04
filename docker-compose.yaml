@@ -52,7 +52,7 @@ x-services-template:
       resources:
         limits:
           cpus: '0.3'
-          memory: 70M
+          memory: 65M
 
 services:
   api:
@@ -86,7 +86,7 @@ services:
       resources:
         limits:
           cpus: '0.10'
-          memory: 10M
+          memory: 20M
 
   redis:
     image: redis:alpine
@@ -101,7 +101,7 @@ services:
       resources:
         limits:
           cpus: '0.20'
-          memory: 60M
+          memory: 55M
 
   postgres:
     image: postgres:15-alpine
