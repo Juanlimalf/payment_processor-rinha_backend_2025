@@ -26,10 +26,7 @@ def task_process(url: str, data: Dict[str, Any], processor_type: str, now: datet
             "Accept": "application/json",
         }
 
-        print(f"Processando o pagamento com o processador {processor_type}")
-
         response = http_client.post(url, json=data, headers=headers)
-        print(response)
 
         if response.status_code == 422:
             return True
@@ -64,8 +61,6 @@ def payment_process(data: Dict[str, Any]) -> Dict[str, Any]:
         amount = data.get("amount", 0)
         code = data.get("correlationId", "default_correlation_id")
         now = datetime.now()
-
-        print(data)
 
         default_url = f"{PAYMENT_DEFAULT}/payments"
         fallback_url = f"{PAYMENT_FALLBACK}/payments"

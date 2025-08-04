@@ -19,11 +19,11 @@ x-services-template:
       - PAYMENT_PROCESSOR_FALLBACK=http://payment-processor-fallback:8080
     networks:
       - api
-  # deploy:
-  #   resources:
-  #     limits:
-  #       cpus: '0.35'
-  #       memory: 50M
+    deploy:
+      resources:
+        limits:
+          cpus: '0.35'
+          memory: 50M
 
   worker: &worker
     build:
@@ -48,11 +48,11 @@ x-services-template:
       - api
       - api2
     restart: unless-stopped
-# deploy:
-#   resources:
-#     limits:
-#       cpus: '0.3'
-#       memory: 70M
+    deploy:
+      resources:
+        limits:
+          cpus: '0.3'
+          memory: 70M
 
 services:
   api:
@@ -82,11 +82,11 @@ services:
       - api
       - api2
     restart: unless-stopped
-  # deploy:
-  #   resources:
-  #     limits:
-  #       cpus: '0.10'
-  #       memory: 20M
+    deploy:
+      resources:
+        limits:
+          cpus: '0.10'
+          memory: 10M
 
   redis:
     image: redis:alpine
@@ -97,11 +97,11 @@ services:
     command: redis-server --appendonly yes --appendfsync everysec
     ports:
       - "6379:6379"
-  # deploy:
-  #   resources:
-  #     limits:
-  #       cpus: '0.20'
-  #       memory: 50M
+    deploy:
+      resources:
+        limits:
+          cpus: '0.20'
+          memory: 60M
 
   postgres:
     image: postgres:15-alpine
@@ -115,11 +115,11 @@ services:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
       - POSTGRES_DB=postgres
-# deploy:
-#   resources:
-#     limits:
-#       cpus: '0.20'
-#       memory: 40M 
+    deploy:
+      resources:
+        limits:
+          cpus: '0.20'
+          memory: 40M 
 
 networks:
   api:
