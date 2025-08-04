@@ -86,7 +86,7 @@ services:
       resources:
         limits:
           cpus: '0.20'
-          memory: 10M
+          memory: 20M
 
   redis:
     image: redis:alpine
@@ -119,7 +119,7 @@ services:
       resources:
         limits:
           cpus: '0.20'
-          memory: 50M 
+          memory: 40M 
 
 networks:
   api:
