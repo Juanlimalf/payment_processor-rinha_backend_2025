@@ -1,5 +1,4 @@
-from .celery_app import app_celery
-from .config import settings
-from .postgres import Base, PostgresDB
+from .postgresDB import AsyncPostgresDB
+from .settings import settings
 
-__all__ = ["settings", "app_celery", "PostgresDB", "Base"]
+__all__ = ["settings", "AsyncPostgresDB"]

@@ -1,21 +1,24 @@
+from datetime import datetime
 from typing import Optional
 
+import asyncpg
 from fastapi import HTTPException, status
-from sqlalchemy import text
-from sqlalchemy.orm import Session
 
-from api.models.model import PaymentModel
-from api.schemas.schema import Default, Fallback, Summary
+from schemas.schema import Default, Fallback, Summary
 
 
 class PaymentService:
-    def __init__(self, session: Session):
+    def __init__(self, session: asyncpg.Connection):
         self.session = session
 
-    def get_summary(self, initial: Optional[str] = None, final: Optional[str] = None) -> Summary:
+    async def get_summary(self, initial: Optional[str] = None, final: Optional[str] = None) -> Summary:
         try:
-            initial_date = initial.replace("Z", "").replace("T", " ") if initial else None
-            final_date = final.replace("Z", "").replace("T", " ") if final else None
+            initial_date = datetime.fromisoformat(initial.replace("Z", "").replace("T", " ")) if initial else None
+            final_date = datetime.fromisoformat(final.replace("Z", "").replace("T", " ")) if final else None
+            default_total_requests = 0
+            default_total_amount = 0
+            fallback_total_requests = 0
+            fallback_total_amount = 0
 
             stmt = """select
                 p.processor_type,
@@ -23,34 +26,30 @@ class PaymentService:
                 count(p.id) total
             from
                 payments p """
-            params = {}
+            params = []
 
             if initial_date and final_date:
-                params["initial"] = initial_date
-                params["final"] = final_date
+                params = [initial_date, final_date]
 
                 stmt += """where
-                    requested_at between :initial and :final """
+                    requested_at between $1 and $2 """
 
             stmt += """group by
                 p.processor_type"""
 
-            stmt_text = text(stmt)
+            results = await self.session.fetch(stmt, *params)
 
-            results = self.session.execute(stmt_text, params).fetchall()
+            for row in results:
+                processor_type = row["processor_type"]
+                valor = row["valor"]
+                total = row["total"]
 
-            default_total_requests = 0
-            default_total_amount = 0
-            fallback_total_requests = 0
-            fallback_total_amount = 0
-
-            for result in results:
-                if result.processor_type == "default":
-                    default_total_requests = result.total
-                    default_total_amount = result.valor
+                if processor_type == "default":
+                    default_total_requests = total
+                    default_total_amount = valor
                 else:
-                    fallback_total_requests = result.total
-                    fallback_total_amount = result.valor
+                    fallback_total_requests = total
+                    fallback_total_amount = valor
 
             default_summary = Default(totalRequests=default_total_requests, totalAmount=default_total_amount)
             fallback_summary = Fallback(totalRequests=fallback_total_requests, totalAmount=fallback_total_amount)
@@ -62,17 +61,17 @@ class PaymentService:
         except Exception as e:
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Erro ao obter resumo: {str(e)}")
 
-    def purge_database(self) -> None:
+    async def purge_database(self) -> None:
+        transaction = self.session.transaction()
         try:
-            # Deletar todos os registros da tabela payments
-            deleted_count = self.session.query(PaymentModel).delete()
+            await transaction.start()
 
-            # Confirmar a transação
-            self.session.commit()
+            await self.session.execute("DELETE FROM payments")
+            await self.session.execute("ALTER SEQUENCE payments_id_seq RESTART WITH 1")
 
-            print(f"Database purged successfully. {deleted_count} records deleted.")
+            await transaction.commit()
+            print("Database purged successfully. records deleted.")
 
         except Exception as e:
-            # Fazer rollback em caso de erro
-            self.session.rollback()
+            await transaction.rollback()
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Erro ao limpar o banco de dados: {str(e)}")

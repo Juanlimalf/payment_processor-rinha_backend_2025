@@ -1,52 +1,63 @@
 x-services-template:
   api: &api
     build:
-      context: .
+      context: ./api
       dockerfile: Dockerfile
     volumes:
-      - .:/app
+      - ./api:/app
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --loop uvloop --http httptools --workers 1
     depends_on:
       - redis
       - postgres
     restart: unless-stopped
     environment:
-      - REDIS_URL=redis://redis:6379
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_DB=0
       - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/postgres
       - PAYMENT_PROCESSOR_DEFAULT=http://payment-processor-default:8080
       - PAYMENT_PROCESSOR_FALLBACK=http://payment-processor-fallback:8080
-
     networks:
       - api
-    
     deploy:
       resources:
         limits:
-          cpus: '0.31'
-          memory: 89M
+          cpus: '0.3'
+          memory: 100M
 
   worker: &worker
-    <<: *api
-    command: celery -A api.config.celery_app worker --loglevel=error
+    build:
+      context: ./worker
+      dockerfile: Dockerfile
+    volumes:
+      - ./worker:/app
+    command: python main.py
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_DB=0
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/postgres
+      - PAYMENT_PROCESSOR_DEFAULT=http://payment-processor-default:8080
+      - PAYMENT_PROCESSOR_FALLBACK=http://payment-processor-fallback:8080
     networks:
       - api
       - payment-processor
-    
     depends_on:
       - redis
       - postgres
       - api
       - api2
+    restart: unless-stopped
     deploy:
       resources:
         limits:
-          cpus: '0.31'
-          memory: 98M
+          cpus: '0.3'
+          memory: 70M
 
 services:
   api:
     <<: *api
     container_name: api
-
   api2:
     <<: *api
     container_name: api2
@@ -55,9 +66,8 @@ services:
     <<: *worker
     container_name: worker
 
-
   nginx:
-    image: nginx:latest
+    image: nginx:alpine
     container_name: nginx
     ports:
       - "9999:80"
@@ -72,24 +82,26 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.19'
-          memory: 18M
+          cpus: '0.20'
+          memory: 10M
 
   redis:
-    image: redis:8.0.3
+    image: redis:alpine
     container_name: redis
     restart: unless-stopped
     networks:
       - api
-    command: ["redis-server", "--appendonly", "yes", "--appendfsync", "everysec"]
+    command: redis-server --appendonly yes --appendfsync everysec
+    ports:
+      - "6379:6379"
     deploy:
       resources:
         limits:
-          cpus: '0.19'
-          memory: 24M
+          cpus: '0.20'
+          memory: 50M
 
   postgres:
-    image: postgres:15.1
+    image: postgres:15-alpine
     container_name: postgres
     restart: unless-stopped
     networks:
@@ -103,8 +115,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.19'
-          memory: 34M
+          cpus: '0.20'
+          memory: 30M 
 
 networks:
   api:
