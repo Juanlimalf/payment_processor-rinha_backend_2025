@@ -23,7 +23,7 @@ x-services-template:
       resources:
         limits:
           cpus: '0.35'
-          memory: 50M
+          memory: 40M
 
   worker: &worker
     build:
@@ -52,7 +52,7 @@ x-services-template:
       resources:
         limits:
           cpus: '0.3'
-          memory: 50M
+          memory: 70M
 
 services:
   api:
@@ -101,7 +101,7 @@ services:
       resources:
         limits:
           cpus: '0.20'
-          memory: 70M
+          memory: 60M
 
   postgres:
     image: postgres:15-alpine
@@ -119,7 +119,7 @@ services:
       resources:
         limits:
           cpus: '0.20'
-          memory: 50M 
+          memory: 40M 
 
 networks:
   api:
