@@ -23,7 +23,7 @@ x-services-template:
       resources:
         limits:
           cpus: '0.3'
-          memory: 90M
+          memory: 60M
 
   worker: &worker
     build:
@@ -52,7 +52,7 @@ x-services-template:
       resources:
         limits:
           cpus: '0.3'
-          memory: 70M
+          memory: 60M
 
 services:
   api:
@@ -65,6 +65,9 @@ services:
   worker:
     <<: *worker
     container_name: worker
+  worker2:
+    <<: *worker
+    container_name: worker2
 
   nginx:
     image: nginx:alpine
@@ -116,7 +119,7 @@ services:
       resources:
         limits:
           cpus: '0.20'
-          memory: 40M 
+          memory: 50M 
 
 networks:
   api:
