@@ -1,10 +1,11 @@
 x-services-template:
   api: &api
-    build:
-      context: ./api
-      dockerfile: Dockerfile
-    volumes:
-      - ./api:/app
+    image: juanlimalf/api-payment_processor-rinha_backend_2025
+    # build:
+    #   context: ./api
+    #   dockerfile: Dockerfile
+    # volumes:
+    #   - ./api:/app
     command: uvicorn main:app --host 0.0.0.0 --port 8000 --loop uvloop --http httptools --workers 1 --no-access-log
     depends_on:
       - redis
@@ -26,11 +27,12 @@ x-services-template:
           memory: 50M
 
   worker: &worker
-    build:
-      context: ./worker
-      dockerfile: Dockerfile
-    volumes:
-      - ./worker:/app
+    image: juanlimalf/worker-payment_processor-rinha_backend_2025
+    # build:
+    #   context: ./worker
+    #   dockerfile: Dockerfile
+    # volumes:
+    #   - ./worker:/app
     command: python main.py
     environment:
       - REDIS_HOST=redis
@@ -95,8 +97,8 @@ services:
     networks:
       - api
     command: redis-server --appendonly yes --appendfsync everysec
-    ports:
-      - "6379:6379"
+    # ports:
+    #   - "6379:6379"
     deploy:
       resources:
         limits:
@@ -109,8 +111,8 @@ services:
     restart: unless-stopped
     networks:
       - api
-    ports:
-      - "5432:5432"
+    # ports:
+    #   - "5432:5432"
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres

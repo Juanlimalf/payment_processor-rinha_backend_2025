@@ -1,3 +1,5 @@
 .env
 payment-processor
 rinha-test
+
+*.code*
