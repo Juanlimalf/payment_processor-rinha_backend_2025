@@ -8,9 +8,6 @@ class SettingsEnv(BaseSettings):
         extra="ignore",
         env_ignore_empty=True,
     )
-    REDIS_HOST: str
-    REDIS_PORT: int
-    REDIS_DB: int
     DATABASE_URL: str
     PAYMENT_PROCESSOR_DEFAULT: str
     PAYMENT_PROCESSOR_FALLBACK: str

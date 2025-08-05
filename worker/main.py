@@ -1,10 +1,22 @@
-import redis
-from rq import SimpleWorker
+import asyncio
 
-from config import settings
+from config import AsyncPostgresDB
+from services.worker import worker
 
-redis_conn = redis.Redis(host=settings.REDIS_HOST, port=settings.REDIS_PORT, db=settings.REDIS_DB)
-worker = SimpleWorker(["worker"], connection=redis_conn, log_job_description=False)
+
+async def main(connection: AsyncPostgresDB):
+    try:
+        print("iniciando o worker...")
+        await worker(connection)
+    except Exception as e:
+        print(e)
+    finally:
+        await connection.close()
+        print("worker finalizado")
+
 
 if __name__ == "__main__":
-    worker.work()
+    conn = AsyncPostgresDB()
+    loop = asyncio.new_event_loop()
+
+    loop.run_until_complete(main(conn))

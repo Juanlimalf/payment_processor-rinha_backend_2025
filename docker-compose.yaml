@@ -1,20 +1,17 @@
 x-services-template:
   api: &api
-    image: juanlimalf/api-payment_processor-rinha_backend_2025
-    # build:
-    #   context: ./api
-    #   dockerfile: Dockerfile
-    # volumes:
-    #   - ./api:/app
+    # image: juanlimalf/api-payment_processor-rinha_backend_2025
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    volumes:
+      - ./api:/app
     command: uvicorn main:app --host 0.0.0.0 --port 8000 --loop uvloop --http httptools --workers 1 --no-access-log
     depends_on:
-      - redis
-      - postgres
+      postgres:
+        condition: service_healthy
     restart: unless-stopped
     environment:
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - REDIS_DB=0
       - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/postgres
       - PAYMENT_PROCESSOR_DEFAULT=http://payment-processor-default:8080
       - PAYMENT_PROCESSOR_FALLBACK=http://payment-processor-fallback:8080
@@ -23,21 +20,18 @@ x-services-template:
     deploy:
       resources:
         limits:
-          cpus: '0.35'
-          memory: 50M
+          cpus: '0.3'
+          memory: 85M
 
   worker: &worker
-    image: juanlimalf/worker-payment_processor-rinha_backend_2025
-    # build:
-    #   context: ./worker
-    #   dockerfile: Dockerfile
-    # volumes:
-    #   - ./worker:/app
+    # image: juanlimalf/worker-payment_processor-rinha_backend_2025
+    build:
+      context: ./worker
+      dockerfile: Dockerfile
+    volumes:
+      - ./worker:/app
     command: python main.py
     environment:
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - REDIS_DB=0
       - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/postgres
       - PAYMENT_PROCESSOR_DEFAULT=http://payment-processor-default:8080
       - PAYMENT_PROCESSOR_FALLBACK=http://payment-processor-fallback:8080
@@ -45,16 +39,18 @@ x-services-template:
       - api
       - payment-processor
     depends_on:
-      - redis
-      - postgres
-      - api
-      - api2
+      postgres:
+        condition: service_healthy
+      api:
+        condition: service_started
+      api2:
+        condition: service_started
     restart: unless-stopped
     deploy:
       resources:
         limits:
-          cpus: '0.3'
-          memory: 65M
+          cpus: '0.4'
+          memory: 80M
 
 services:
   api:
@@ -67,9 +63,6 @@ services:
   worker:
     <<: *worker
     container_name: worker
-  worker2:
-    <<: *worker
-    container_name: worker2
 
   nginx:
     image: nginx:alpine
@@ -87,32 +80,18 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.10'
+          cpus: '0.2'
           memory: 20M
 
-  redis:
-    image: redis:alpine
-    container_name: redis
-    restart: unless-stopped
-    networks:
-      - api
-    command: redis-server --appendonly yes --appendfsync everysec
-    # ports:
-    #   - "6379:6379"
-    deploy:
-      resources:
-        limits:
-          cpus: '0.20'
-          memory: 55M
-
   postgres:
+    command: ["postgres", "-c", "max_connections=500"]
     image: postgres:15-alpine
     container_name: postgres
     restart: unless-stopped
     networks:
       - api
-    # ports:
-    #   - "5432:5432"
+    ports:
+      - "5432:5432"
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
@@ -120,8 +99,14 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.20'
-          memory: 40M 
+          cpus: '0.3'
+          memory: 80M
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 10s
 
 networks:
   api:

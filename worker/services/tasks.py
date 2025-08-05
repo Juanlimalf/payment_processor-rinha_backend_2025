@@ -1,86 +1,109 @@
 from datetime import datetime
+from decimal import Decimal
 from typing import Any, Dict
 
 import httpx
-import psycopg2
 
 from config import settings
+from config.postgresDB import AsyncPostgresDB
 
-PAYMENT_DEFAULT = settings.PAYMENT_PROCESSOR_DEFAULT
-PAYMENT_FALLBACK = settings.PAYMENT_PROCESSOR_FALLBACK
-
-conn = psycopg2.connect(settings.DATABASE_URL)
-session = conn.cursor()
+PAYMENT_DEFAULT = f"{settings.PAYMENT_PROCESSOR_DEFAULT}/payments"
+PAYMENT_FALLBACK = f"{settings.PAYMENT_PROCESSOR_FALLBACK}/payments"
 
 
-http_client = httpx.Client(
+http_client = httpx.AsyncClient(
     limits=httpx.Limits(max_connections=200, max_keepalive_connections=40),
     timeout=httpx.Timeout(10.0, connect=10.0, read=10.0, write=10.0),
 )
 
 
-def task_process(url: str, data: Dict[str, Any], processor_type: str, now: datetime) -> bool:
-    try:
-        headers = {
-            "Content-Type": "application/json",
-            "Accept": "application/json",
-        }
+class WorkerService:
+    __slots__ = ("connection",)
 
-        response = http_client.post(url, json=data, headers=headers)
+    def __init__(self, connection: AsyncPostgresDB) -> None:
+        self.connection = connection
 
-        if response.status_code == 422:
+    async def payment_process(self, data: Any) -> Dict[str, Any]:
+        try:
+            payment_id = data["id"]
+            amount = data["amount"]
+            correlation_id = data["correlation_id"]
+            requested_at = data["requested_at"]
+
+            print(correlation_id)
+
+            response_default = await self.task_process(
+                url=PAYMENT_DEFAULT,
+                paymentId=payment_id,
+                processorType=1,
+                amount=amount,
+                correlationId=correlation_id,
+                requestedAt=requested_at,
+            )
+
+            if not response_default:
+                response_fallback = await self.task_process(
+                    url=PAYMENT_FALLBACK,
+                    paymentId=payment_id,
+                    processorType=2,
+                    amount=amount,
+                    correlationId=correlation_id,
+                    requestedAt=requested_at,
+                )
+
+                if not response_fallback:
+                    raise Exception("Não foi possível processar o pagamento com nenhum dos processadores disponíveis")
+
+            return {"status": "success", "message": "Pagamento processado com sucesso"}
+
+        except Exception as e:
+            print(f"Reprocessar o pagamento devido ao erro: {e}")
+            raise
+
+    async def task_process(self, url: str, paymentId: int, processorType: int, amount: Decimal, correlationId: str, requestedAt: datetime) -> bool:
+        try:
+            headers = {
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+            }
+
+            body = {
+                "correlationId": correlationId,
+                "amount": float(amount),
+                "requestedAt": requestedAt.isoformat(),
+            }
+
+            print(body)
+
+            response = await http_client.post(url, json=body, headers=headers)
+
+            print(response.status_code)
+            print(response.text)
+
+            if response.status_code != 200:
+                if response.status_code != 422:
+                    print(f"Pagamento processado com sucesso com o processador {processorType} - Status: {response.status_code} - Mensagem: {response.text}")
+                    return False
+
+            await self.update_status(payment_id=paymentId, process_type=processorType)
             return True
 
-        if response.status_code != 200:
-            print(f"Pagamento processado com sucesso com o processador {processor_type}")
+        except Exception as exc:
+            print(f"Erro ao processar o pagamento com o processador {processorType}: {exc}")
             return False
 
-        session.execute(
-            """
-            INSERT INTO payments (
-                "correlationId",
-                amount,
-                processor_type,
-                requested_at
-            ) VALUES (%s, %s, %s, %s)
-            """,
-            (data["correlationId"], data["amount"], processor_type, now),
-        )
-
-        conn.commit()
-
-        return True
-
-    except Exception as exc:
-        print(f"Erro ao processar o pagamento com o processador {processor_type}: {exc}")
-        return False
-
-
-def payment_process(data: Dict[str, Any]) -> Dict[str, Any]:
-    try:
-        amount = data.get("amount", 0)
-        code = data.get("correlationId", "default_correlation_id")
-        now = datetime.now()
-
-        default_url = f"{PAYMENT_DEFAULT}/payments"
-        fallback_url = f"{PAYMENT_FALLBACK}/payments"
-
-        payment_data = {
-            "correlationId": code,
-            "amount": amount,
-            "requestedAt": now.isoformat() + "Z",
-        }
-
-        response_default = task_process(default_url, payment_data, "default", now)
-
-        if not response_default:
-            response_fallback = task_process(fallback_url, payment_data, "fallback", now)
-
-            if not response_fallback:
-                raise Exception("Não foi possível processar o pagamento com nenhum dos processadores disponíveis")
-
-        return {"status": "success", "message": "Pagamento processado com sucesso"}
-
-    except Exception as e:
-        print(f"Reprocessar o pagamento devido ao erro: {e}")
-        raise
+    async def update_status(self, payment_id: int, process_type: int):
+        async with self.connection.connection() as conn:
+            async with conn.transaction():
+                await conn.execute(
+                    """update
+                            payments
+                        set
+                            was_processed = true,
+                            process_type = $1
+                        where
+                            id = $2;""",
+                    process_type,
+                    payment_id,
+                )
+        print("Pagamento processado com sucesso")
