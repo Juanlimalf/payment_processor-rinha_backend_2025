@@ -20,7 +20,7 @@ async def worker(connection: AsyncPostgresDB):
                     where
                         p.was_processed = false
                     FOR UPDATE SKIP LOCKED
-                    limit 500;"""
+                    limit 300;"""
                 )
 
         if not payments:
