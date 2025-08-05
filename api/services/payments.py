@@ -44,7 +44,7 @@ class PaymentService:
                 async with conn.transaction():
                     stmt = """select
                         p.process_type,
-                        sum(p.amount) valor,
+                        round(sum(p.amount), 2) valor,
                         count(p.id) total
                     from
                         payments p """
