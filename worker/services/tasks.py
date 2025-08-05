@@ -12,8 +12,8 @@ PAYMENT_FALLBACK = f"{settings.PAYMENT_PROCESSOR_FALLBACK}/payments"
 
 
 http_client = httpx.AsyncClient(
-    limits=httpx.Limits(max_connections=200, max_keepalive_connections=40),
-    timeout=httpx.Timeout(10.0, connect=10.0, read=10.0, write=10.0),
+    limits=httpx.Limits(max_connections=300, max_keepalive_connections=50),
+    timeout=httpx.Timeout(5.0, connect=5.0, read=5.0, write=5.0),
 )
 
 
