@@ -75,7 +75,7 @@ class WorkerService:
 
             if response.status_code != 200:
                 if response.status_code != 422:
-                    print(f"Pagamento processado com sucesso com o processador {processorType} - Status: {response.status_code} - Mensagem: {response.text}")
+                    print(f"Erro ao processar o pagamento com o processador {processorType} - Status: {response.status_code} - Mensagem: {response.text}")
                     return False
 
             await self.update_status(payment_id=paymentId, process_type=processorType)
