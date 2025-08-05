@@ -30,8 +30,6 @@ class WorkerService:
             correlation_id = data["correlation_id"]
             requested_at = data["requested_at"]
 
-            print(correlation_id)
-
             response_default = await self.task_process(
                 url=PAYMENT_DEFAULT,
                 paymentId=payment_id,
@@ -73,12 +71,7 @@ class WorkerService:
                 "requestedAt": requestedAt.isoformat(),
             }
 
-            print(body)
-
             response = await http_client.post(url, json=body, headers=headers)
-
-            print(response.status_code)
-            print(response.text)
 
             if response.status_code != 200:
                 if response.status_code != 422:
@@ -106,4 +99,4 @@ class WorkerService:
                     process_type,
                     payment_id,
                 )
-        print("Pagamento processado com sucesso")
+        print(f"Pagamento processado com sucesso - {payment_id}")

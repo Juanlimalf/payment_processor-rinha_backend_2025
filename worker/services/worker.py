@@ -19,7 +19,8 @@ async def worker(connection: AsyncPostgresDB):
                         payments p
                     where
                         p.was_processed = false
-                    limit 50;"""
+                    FOR UPDATE SKIP LOCKED
+                    limit 100;"""
                 )
 
         if not payments:
@@ -29,5 +30,3 @@ async def worker(connection: AsyncPostgresDB):
         tasks = [worker_service.payment_process(payment) for payment in payments]
 
         await asyncio.gather(*tasks, return_exceptions=True)
-
-        await asyncio.sleep(0.1)

@@ -21,7 +21,7 @@ x-services-template:
       resources:
         limits:
           cpus: '0.3'
-          memory: 85M
+          memory: 65M
 
   worker: &worker
     # image: juanlimalf/worker-payment_processor-rinha_backend_2025
@@ -49,17 +49,18 @@ x-services-template:
     deploy:
       resources:
         limits:
-          cpus: '0.4'
-          memory: 80M
+          cpus: '0.3'
+          memory: 60M
 
 services:
   api:
     <<: *api
     container_name: api
+
   api2:
     <<: *api
     container_name: api2
-
+    
   worker:
     <<: *worker
     container_name: worker
@@ -81,7 +82,7 @@ services:
       resources:
         limits:
           cpus: '0.2'
-          memory: 20M
+          memory: 30M
 
   postgres:
     command: ["postgres", "-c", "max_connections=500"]
@@ -99,8 +100,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.3'
-          memory: 80M
+          cpus: '0.4'
+          memory: 130M
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "postgres"]
       interval: 10s
