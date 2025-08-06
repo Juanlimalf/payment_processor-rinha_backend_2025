@@ -10,7 +10,7 @@ async def worker():
     connection = AsyncPostgresDB()
     http_client = httpx.AsyncClient(
         limits=httpx.Limits(max_connections=350, max_keepalive_connections=50),
-        timeout=httpx.Timeout(2.0, connect=2.0, read=2.0, write=2.0),
+        timeout=httpx.Timeout(10.0, connect=10.0, read=10.0, write=10.0),
     )
     worker_service = WorkerService(connection=connection, http_client=http_client)
     while True:
