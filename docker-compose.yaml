@@ -21,7 +21,7 @@ x-services-template:
     deploy:
       resources:
         limits:
-          cpus: '0.2'
+          cpus: '0.3'
           memory: 55M
     healthcheck:
       test: [ "CMD", "wget", "--spider", "-q", "http://0.0.0.0:8000" ]
@@ -57,7 +57,7 @@ x-services-template:
     deploy:
       resources:
         limits:
-          cpus: '0.5'
+          cpus: '0.3'
           memory: 55M
 
 services:

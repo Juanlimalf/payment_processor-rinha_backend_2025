@@ -9,17 +9,10 @@ from .settings import settings
 class AsyncPostgresDB:
     """Conexão com o banco de dados Mysql"""
 
-    # __instance = None
     __session_pool: Union[asyncpg.Pool, None] = None
     __dsn = settings.DATABASE_URL
 
-    # def __new__(cls):
-    #     if cls.__instance is None:
-    #         cls.__instance = super(AsyncPostgresDB, cls).__new__(cls)
-
-    #     return cls.__instance
-
-    async def init_pool(self, min_size=1, max_size=10):
+    async def init_pool(self, min_size=1, max_size=30):
         if self.__session_pool is None:
             self.__session_pool = await asyncpg.create_pool(self.__dsn, min_size=min_size, max_size=max_size)
 

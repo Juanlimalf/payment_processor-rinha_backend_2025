@@ -18,14 +18,14 @@ def main(thread_id: int):
 
 
 if __name__ == "__main__":
-    # Cria 2 threads, cada uma executando um worker
     thread1 = threading.Thread(target=main, args=(1,), name="WorkerThread-1")
     thread2 = threading.Thread(target=main, args=(2,), name="WorkerThread-2")
+    thread3 = threading.Thread(target=main, args=(3,), name="WorkerThread-3")
 
-    # Inicia as threads
     thread1.start()
     thread2.start()
+    thread3.start()
 
-    # Aguarda as threads terminarem (elas rodam infinitamente)
     thread1.join()
     thread2.join()
+    thread3.join()
