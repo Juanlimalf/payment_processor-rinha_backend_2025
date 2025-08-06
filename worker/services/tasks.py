@@ -93,7 +93,6 @@ class WorkerService:
                 "amount": float(amount),
                 "requestedAt": requestedAt.isoformat().split(".")[0],
             }
-            print(body)
 
             response = await self.http_client.post(url, json=body, headers=headers)
 
