@@ -40,7 +40,7 @@ class WorkerService:
                     WHERE
                         p.was_processed = false
                     FOR UPDATE SKIP LOCKED
-                    LIMIT 20;"""
+                    LIMIT 50;"""
             )
 
         if not payments:
