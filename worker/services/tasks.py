@@ -91,8 +91,9 @@ class WorkerService:
             body = {
                 "correlationId": correlationId,
                 "amount": float(amount),
-                "requestedAt": requestedAt.isoformat(),
+                "requestedAt": requestedAt.isoformat().split(".")[0],
             }
+            print(body)
 
             response = await self.http_client.post(url, json=body, headers=headers)
 
@@ -117,7 +118,7 @@ class WorkerService:
                         set
                             was_processed = true,
                             process_type = $1,
-                            requested_at = '{str(requestedAt)}'
+                            requested_at = '{str(requestedAt.strftime("%Y-%m-%d %H:%M:%S"))}'
                         where
                             id = $2;""",
                     process_type,
