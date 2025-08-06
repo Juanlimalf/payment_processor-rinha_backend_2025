@@ -11,7 +11,7 @@ from config.postgresDB import AsyncPostgresDB
 
 logger = logging.getLogger("worker")
 
-logger.setLevel(level=logging.INFO)
+logger.setLevel(level=logging.ERROR)
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
@@ -40,7 +40,7 @@ class WorkerService:
                     WHERE
                         p.was_processed = false
                     FOR UPDATE SKIP LOCKED
-                    LIMIT 100;"""
+                    LIMIT 300;"""
             )
 
         if not payments:
