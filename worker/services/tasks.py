@@ -56,8 +56,6 @@ class WorkerService:
             correlation_id = data["correlation_id"]
             requested_at = datetime.now(tz=timezone.utc)
 
-            print(requested_at)
-
             response_default = await self.task_process(
                 url=PAYMENT_DEFAULT,
                 paymentId=payment_id,
