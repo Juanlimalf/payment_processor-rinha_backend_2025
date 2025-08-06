@@ -37,7 +37,7 @@ class AsyncPostgresDB:
             self.__session_pool = None
 
     async def create_table(self):
-        if self.__session_pool and self.__instance:
+        if self.__session_pool:
             try:
                 await self.__session_pool.execute(
                     """CREATE TABLE IF NOT EXISTS "payments" (

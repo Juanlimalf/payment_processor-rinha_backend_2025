@@ -28,7 +28,7 @@ x-services-template:
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 10s
+      start_period: 5s
 
   worker:
     # image: juanlimalf/worker-payment_processor-rinha_backend_2025
@@ -117,7 +117,7 @@ services:
       interval: 10s
       timeout: 10s
       retries: 5
-      start_period: 10s
+      start_period: 5s
 
 networks:
   api:
