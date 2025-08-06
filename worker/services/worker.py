@@ -4,28 +4,13 @@ from config.postgresDB import AsyncPostgresDB
 from services.tasks import WorkerService
 
 
-async def worker(connection: AsyncPostgresDB):
+async def worker():
+    connection = AsyncPostgresDB()
     worker_service = WorkerService(connection=connection)
     while True:
-        async with connection.connection() as conn:
-            async with conn.transaction():
-                payments = await conn.fetch(
-                    """select
-                        p.id,
-                        p.correlation_id,
-                        p.amount,
-                        p.requested_at
-                    from
-                        payments p
-                    where
-                        p.was_processed = false
-                    limit 350;"""
-                )
+        # tasks_group = [asyncio.create_task(worker_service.get_payments_lote()) for _ in range(3)]
 
-        if not payments:
-            await asyncio.sleep(0.1)
-            continue
+        # await asyncio.gather(*tasks_group)
+        await asyncio.create_task(worker_service.get_payments_lote())
 
-        tasks = [worker_service.payment_process(payment) for payment in payments]
-
-        await asyncio.gather(*tasks)
+        await asyncio.sleep(0.2)

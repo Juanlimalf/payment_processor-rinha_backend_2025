@@ -1,22 +1,31 @@
 import asyncio
+import threading
 
-from config import AsyncPostgresDB
 from services.worker import worker
 
 
-async def main(connection: AsyncPostgresDB):
+def main(thread_id: int):
     try:
-        print("iniciando o worker...")
-        await worker(connection)
+        print(f"Iniciando worker {thread_id}")
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+        loop.run_until_complete(worker())
     except Exception as e:
         print(e)
     finally:
-        await connection.close()
-        print("worker finalizado")
+        print(f"worker {thread_id} finalizado")
 
 
 if __name__ == "__main__":
-    conn = AsyncPostgresDB()
-    loop = asyncio.new_event_loop()
+    # Cria 2 threads, cada uma executando um worker
+    thread1 = threading.Thread(target=main, args=(1,), name="WorkerThread-1")
+    thread2 = threading.Thread(target=main, args=(2,), name="WorkerThread-2")
 
-    loop.run_until_complete(main(conn))
+    # Inicia as threads
+    thread1.start()
+    thread2.start()
+
+    # Aguarda as threads terminarem (elas rodam infinitamente)
+    thread1.join()
+    thread2.join()

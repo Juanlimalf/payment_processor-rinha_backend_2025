@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime
 from decimal import Decimal
 from typing import Any, Dict
@@ -22,6 +23,25 @@ class WorkerService:
 
     def __init__(self, connection: AsyncPostgresDB) -> None:
         self.connection = connection
+
+    async def get_payments_lote(self):
+        async with self.connection.connection() as conn:
+            payments = await conn.fetch(
+                """SELECT
+                        p.id,
+                        p.correlation_id,
+                        p.amount,
+                        p.requested_at
+                    FROM
+                        payments p
+                    WHERE
+                        p.was_processed = false
+                    FOR UPDATE SKIP LOCKED
+                    LIMIT 100;"""
+            )
+
+        tasks = [self.payment_process(payment) for payment in payments]
+        await asyncio.gather(*tasks)
 
     async def payment_process(self, data: Any) -> Dict[str, Any]:
         try:
