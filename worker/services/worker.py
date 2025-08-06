@@ -19,4 +19,4 @@ async def worker():
         except Exception as e:
             print(e)
 
-        await asyncio.sleep(0.2)
+        await asyncio.sleep(0.1)
