@@ -114,8 +114,8 @@ services:
           memory: 155M
     healthcheck:
       test: [ "CMD", "pg_isready", "-U", "postgres" ]
-      interval: 10s
-      timeout: 10s
+      interval: 5s
+      timeout: 5s
       retries: 5
       start_period: 5s
 
