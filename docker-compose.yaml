@@ -22,7 +22,7 @@ x-services-template:
       resources:
         limits:
           cpus: '0.3'
-          memory: 55M
+          memory: 50M
     healthcheck:
       test: [ "CMD", "wget", "--spider", "-q", "http://0.0.0.0:8000" ]
       interval: 10s
@@ -57,8 +57,8 @@ x-services-template:
     deploy:
       resources:
         limits:
-          cpus: '0.3'
-          memory: 55M
+          cpus: '0.5'
+          memory: 50M
 
 services:
   api:
@@ -110,8 +110,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.4'
-          memory: 155M
+          cpus: '0.2'
+          memory: 170M
     healthcheck:
       test: [ "CMD", "pg_isready", "-U", "postgres" ]
       interval: 5s
