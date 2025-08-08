@@ -4,7 +4,7 @@ import logging
 import time
 from datetime import datetime, timezone
 from decimal import Decimal
-from typing import Any, Dict, List, Union
+from typing import Any, List, Union
 
 import httpx
 from redis import Redis
@@ -14,7 +14,7 @@ from config import settings
 
 logger = logging.getLogger("worker")
 
-logger.setLevel(level=logging.INFO)
+logger.setLevel(level=logging.ERROR)
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
@@ -43,7 +43,7 @@ class WorkerService:
 
     async def get_payments(self) -> Union[List[str], None]:
         try:
-            return self.redis_client.lpop("payment_queue", 500)
+            return self.redis_client.lpop("payment_queue", 10)
 
         except Exception as e:
             logger.error(f"Erro ao obter os pagamentos: {e}")
@@ -93,9 +93,12 @@ class WorkerService:
 
             response = await self.http_client.post(url, json=body, headers=headers)
 
-            if response.status_code != 200:
+            if response.status_code == 422:
                 logger.error(f"Erro ao processar o pagamento com o processador {processorType} - Status: {response.status_code} - Mensagem: {response.text}")
-                return False
+
+                return True
+
+            response.raise_for_status()
 
             await self.update_status(body, processorType, int(time.mktime(requestedAt.timetuple())))
             return True

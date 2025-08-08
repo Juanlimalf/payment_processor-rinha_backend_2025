@@ -20,5 +20,3 @@ async def worker():
             await asyncio.create_task(worker_service.start_process())
         except Exception as e:
             print(e)
-
-        await asyncio.sleep(0.1)

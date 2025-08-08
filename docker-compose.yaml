@@ -18,8 +18,8 @@ x-services-template:
     deploy:
       resources:
         limits:
-          cpus: '0.3'
-          memory: 80M
+          cpus: '0.4'
+          memory: 85M
 
   worker:
     # image: juanlimalf/worker-payment_processor-rinha_backend_2025
@@ -45,8 +45,8 @@ x-services-template:
     deploy:
       resources:
         limits:
-          cpus: '0.5'
-          memory: 70M
+          cpus: '0.3'
+          memory: 90M
 
 services:
   api:
@@ -92,7 +92,7 @@ services:
       resources:
         limits:
           cpus: '0.2'
-          memory: 90M
+          memory: 60M
 
 networks:
   api:
