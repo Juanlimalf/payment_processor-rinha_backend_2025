@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Union
 
 import httpx
 from redis import Redis
+from tenacity import retry, stop_after_attempt, wait_fixed
 
 from config import settings
 
@@ -42,7 +43,7 @@ class WorkerService:
 
     async def get_payments(self) -> Union[List[str], None]:
         try:
-            return self.redis_client.lpop("payment_queue", 100)
+            return self.redis_client.lpop("payment_queue", 500)
 
         except Exception as e:
             logger.error(f"Erro ao obter os pagamentos: {e}")
@@ -76,6 +77,7 @@ class WorkerService:
         except Exception as e:
             logger.error(f"Erro ao processar o pagamento: {e}")
 
+    @retry(stop=stop_after_attempt(3), wait=wait_fixed(2))
     async def task_process(self, url: str, processorType: str, amount: Decimal, correlationId: str, requestedAt: datetime) -> bool:
         try:
             headers = {
