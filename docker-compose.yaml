@@ -7,28 +7,19 @@ x-services-template:
       dockerfile: Dockerfile
     volumes:
       - ./api:/app
-    command: uvicorn main:app --host 0.0.0.0 --port 8000 --loop uvloop --http httptools --workers 1 --no-access-log
     depends_on:
-      postgres:
-        condition: service_healthy
+      - redis
     restart: unless-stopped
     environment:
-      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/postgres
-      - PAYMENT_PROCESSOR_DEFAULT=http://payment-processor-default:8080
-      - PAYMENT_PROCESSOR_FALLBACK=http://payment-processor-fallback:8080
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
     networks:
       - api
     deploy:
       resources:
         limits:
           cpus: '0.3'
-          memory: 50M
-    healthcheck:
-      test: [ "CMD", "wget", "--spider", "-q", "http://0.0.0.0:8000" ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 5s
+          memory: 80M
 
   worker:
     # image: juanlimalf/worker-payment_processor-rinha_backend_2025
@@ -38,27 +29,24 @@ x-services-template:
       dockerfile: Dockerfile
     volumes:
       - ./worker:/app
-    command: python main.py
     environment:
-      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/postgres
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
       - PAYMENT_PROCESSOR_DEFAULT=http://payment-processor-default:8080
       - PAYMENT_PROCESSOR_FALLBACK=http://payment-processor-fallback:8080
     networks:
       - api
       - payment-processor
     depends_on:
-      postgres:
-        condition: service_healthy
-      api:
-        condition: service_healthy
-      api2:
-        condition: service_healthy
+      - redis
+      - api
+      - api2
     restart: unless-stopped
     deploy:
       resources:
         limits:
           cpus: '0.5'
-          memory: 50M
+          memory: 70M
 
 services:
   api:
@@ -83,41 +71,28 @@ services:
     networks:
       - api
     depends_on:
-      api:
-        condition: service_healthy
-      api2:
-        condition: service_healthy
+      - api
+      - api2
     restart: unless-stopped
     deploy:
       resources:
         limits:
           cpus: '0.2'
-          memory: 20M
+          memory: 30M
 
-  postgres:
-    command: [ "postgres", "-c", "max_connections=500" ]
-    image: postgres:15-alpine
-    container_name: postgres
+  redis:
+    image: redis
+    container_name: redis
     restart: unless-stopped
     networks:
       - api
     ports:
-      - "5432:5432"
-    environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=postgres
+      - "6379:6379"
     deploy:
       resources:
         limits:
           cpus: '0.2'
-          memory: 170M
-    healthcheck:
-      test: [ "CMD", "pg_isready", "-U", "postgres" ]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-      start_period: 5s
+          memory: 90M
 
 networks:
   api:

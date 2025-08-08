@@ -1,100 +1,68 @@
+import asyncio
+import json
+import time
 from datetime import datetime
 from typing import Optional
 
-from fastapi import HTTPException, status
+import redis
 
-from config.postgresDB import AsyncPostgresDB
-from schemas.schema import Default, Fallback, Summary
+from schemas.schema import Payment, PaymentsTotals, Summary
 
-connection = AsyncPostgresDB()
+queue_payments = asyncio.Queue(maxsize=5_000)
+
+redis_client = redis.Redis(host="redis", port=6379, db=0)
 
 
 class PaymentService:
-    __slots__ = ()
+    def _iso_to_timestamp(self, iso_str: str) -> int:
+        dt = datetime.strptime(iso_str.split(".")[0], "%Y-%m-%dT%H:%M:%S")
 
-    async def insert_payment(self, amount: float, correlationID: str):
-        async with connection.connection() as conn:
-            async with conn.transaction():
-                try:
-                    await conn.execute(
-                        """
-                        INSERT INTO payments (
-                            correlation_id,
-                            amount,
-                            was_processed
-                        ) VALUES ($1, $2, $3)
-                        """,
-                        correlationID,
-                        amount,
-                        False,
-                    )
+        return int(time.mktime(dt.timetuple()))
 
-                except Exception as e:
-                    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Erro ao inserir pagamento: {str(e)}")
+    async def insert_payment(self, data: Payment):
+        queue_payments.put_nowait(data)
 
-    async def get_summary(self, initial: Optional[str] = None, final: Optional[str] = None) -> Summary:
-        try:
-            initial_date = datetime.fromisoformat(initial.replace("Z", "").replace("T", " ")) if initial else None
-            final_date = datetime.fromisoformat(final.replace("Z", "").replace("T", " ")) if final else None
-            default_total_requests = 0
-            default_total_amount = 0
-            fallback_total_requests = 0
-            fallback_total_amount = 0
-            async with connection.connection() as conn:
-                async with conn.transaction():
-                    stmt = """select
-                        p.process_type,
-                        round(sum(p.amount), 2) valor,
-                        count(p.id) total
-                    from
-                        payments p """
-                    params = []
+    async def get_summary(self, from_date: Optional[str] = None, to_date: Optional[str] = None) -> Summary:
+        if from_date and to_date:
+            from_ts = self._iso_to_timestamp(from_date)
+            to_ts = self._iso_to_timestamp(to_date)
 
-                    if initial_date and final_date:
-                        params = [initial_date, final_date]
+            payments_default = redis_client.zrangebyscore("payment_processed_default", from_ts, to_ts)
+            payments_fallback = redis_client.zrangebyscore("payment_processed_fallback", from_ts, to_ts)
+        else:
+            payments_default = redis_client.zrange("payment_processed_default", 0, -1)
+            payments_fallback = redis_client.zrange("payment_processed_fallback", 0, -1)
 
-                        stmt += """where
-                            p.requested_at between $1 and $2
-                            and p.was_processed = true 
-                            and p.process_type in (1, 2) """
-
-                    stmt += """group by
-                        p.process_type;"""
-
-                    results = await conn.fetch(stmt, *params)
-
-            for row in results:
-                processor_type = row["process_type"]
-                valor = row["valor"]
-                total = row["total"]
-
-                if processor_type == 1:
-                    default_total_requests = total
-                    default_total_amount = valor
-                elif processor_type == 2:
-                    fallback_total_requests = total
-                    fallback_total_amount = valor
-                else:
-                    continue
-
-            default_summary = Default(totalRequests=default_total_requests, totalAmount=default_total_amount)
-            fallback_summary = Fallback(totalRequests=fallback_total_requests, totalAmount=fallback_total_amount)
-
-            return Summary(default=default_summary, fallback=fallback_summary)
-
-        except ValueError as e:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Formato de data inválido: {str(e)}")
-        except Exception as e:
-            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Erro ao obter resumo: {str(e)}")
+        return Summary(
+            default=PaymentsTotals(
+                totalRequests=len(payments_default),
+                totalAmount=round(sum(json.loads(item.decode())["amount"] for item in payments_default), 2),
+            ),
+            fallback=PaymentsTotals(
+                totalRequests=len(payments_fallback),
+                totalAmount=round(sum(json.loads(item.decode())["amount"] for item in payments_fallback), 2),
+            ),
+        )
 
     async def purge_database(self) -> None:
+        redis_client.flushdb()
+
+
+class PublishService:
+    async def start_processing(self):
+        while True:
+            try:
+                data = await queue_payments.get()
+
+                if data:
+                    await self.insert_payment(data)
+
+                queue_payments.task_done()
+            except Exception as e:
+                print(e)
+
+    async def insert_payment(self, data: Payment):
         try:
-            async with connection.connection() as conn:
-                async with conn.transaction():
-                    await conn.execute("DELETE FROM payments")
-                    await conn.execute("ALTER SEQUENCE payments_id_seq RESTART WITH 1")
-
-            print("Database purged successfully. records deleted.")
-
+            redis_client.lpush("payment_queue", data.model_dump_json())
         except Exception as e:
-            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Erro ao limpar o banco de dados: {str(e)}")
+            raise e

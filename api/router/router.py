@@ -21,7 +21,7 @@ async def get_service():
 
 @router.post("/payments")
 async def router_app(payload: Payment, service: PaymentService = Depends(get_service)):
-    asyncio.create_task(service.insert_payment(payload.amount, payload.correlationId))
+    asyncio.create_task(service.insert_payment(data=payload))
 
     return PAYMENT_RESPONSE
 

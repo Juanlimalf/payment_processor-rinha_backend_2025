@@ -1,23 +1,10 @@
-from contextlib import asynccontextmanager
+import asyncio
 
+import uvicorn
 from fastapi import FastAPI
 
-from config.postgresDB import AsyncPostgresDB
 from router.router import router as app_router
-
-conn = AsyncPostgresDB()
-
-
-@asynccontextmanager
-async def start_db(app: FastAPI):
-    print("Starting database")
-    await conn.init_pool()
-    await conn.create_table()
-
-    yield
-    await conn.close()
-    print("Closing database")
-
+from services.payments import PublishService
 
 app = FastAPI(
     docs_url=None,
@@ -25,28 +12,39 @@ app = FastAPI(
     openapi_url=None,
     title="Payment Processor API",
     description="API for processing payments in the Rinha de Backend",
-    lifespan=start_db,
 )
 
 app.include_router(app_router)
 
 
-@app.get("/")
+@app.get("/heatcheck")
 async def root():
-    return {"message": "Benvindo a Api do Rinha de Backend 2025 - Payment Processor by Juan Lima"}
+    return {"message": "service is running"}
 
 
-# if __name__ == "__main__":
-#     config = uvicorn.Config(
-#         app,
-#         host="0.0.0.0",
-#         port=8000,
-#         workers=2,
-#         access_log=False,
-#         server_header=False,
-#         date_header=False,
-#     )
+async def run():
+    publish_service = PublishService()
 
-#     server = uvicorn.Server(config)
+    config = uvicorn.Config(
+        "main:app",
+        host="0.0.0.0",
+        port=8000,
+        reload=False,
+        loop="uvloop",
+        http="httptools",
+        workers=1,
+        access_log=False,
+    )
+    server = uvicorn.Server(config)
 
-#     server.run()
+    await asyncio.gather(
+        asyncio.create_task(server.serve()),
+        asyncio.create_task(publish_service.start_processing()),
+    )
+
+
+if __name__ == "__main__":
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+
+    loop.run_until_complete(run())

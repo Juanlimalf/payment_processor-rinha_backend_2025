@@ -8,7 +8,8 @@ class SettingsEnv(BaseSettings):
         extra="ignore",
         env_ignore_empty=True,
     )
-    DATABASE_URL: str
+    REDIS_HOST: str = "localhost"
+    REDIS_PORT: int = 6379
 
 
 settings = SettingsEnv()

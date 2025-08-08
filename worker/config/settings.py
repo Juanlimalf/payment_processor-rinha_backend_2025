@@ -8,9 +8,10 @@ class SettingsEnv(BaseSettings):
         extra="ignore",
         env_ignore_empty=True,
     )
-    DATABASE_URL: str
-    PAYMENT_PROCESSOR_DEFAULT: str
-    PAYMENT_PROCESSOR_FALLBACK: str
+    REDIS_HOST: str = "localhost"
+    REDIS_PORT: int = 6379
+    PAYMENT_PROCESSOR_DEFAULT: str = "http://localhost:8001"
+    PAYMENT_PROCESSOR_FALLBACK: str = "http://localhost:8002"
 
 
 settings = SettingsEnv()

@@ -1,17 +1,19 @@
 import asyncio
+import json
 import logging
+import time
 from datetime import datetime, timezone
 from decimal import Decimal
-from typing import Any, Dict
+from typing import Any, Dict, List, Union
 
 import httpx
+from redis import Redis
 
 from config import settings
-from config.postgresDB import AsyncPostgresDB
 
 logger = logging.getLogger("worker")
 
-logger.setLevel(level=logging.ERROR)
+logger.setLevel(level=logging.INFO)
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
@@ -22,44 +24,38 @@ PAYMENT_FALLBACK = f"{settings.PAYMENT_PROCESSOR_FALLBACK}/payments"
 
 
 class WorkerService:
-    __slots__ = ("connection", "http_client")
+    __slots__ = ("http_client", "redis_client")
 
-    def __init__(self, connection: AsyncPostgresDB, http_client: httpx.AsyncClient) -> None:
-        self.connection = connection
+    def __init__(self, http_client: httpx.AsyncClient, redis_client: Redis) -> None:
         self.http_client = http_client
+        self.redis_client = redis_client
 
     async def start_process(self):
-        async with self.connection.connection() as conn:
-            payments = await conn.fetch(
-                """SELECT
-                        p.id,
-                        p.correlation_id,
-                        p.amount
-                    FROM
-                        payments p
-                    WHERE
-                        p.was_processed = false
-                    FOR UPDATE SKIP LOCKED
-                    LIMIT 300;"""
-            )
+        payments = await self.get_payments()
 
         if not payments:
             return
 
-        tasks = [self.payment_process(payment) for payment in payments]
+        tasks = [self.payment_process(json.loads(payment)) for payment in payments]
+
         await asyncio.gather(*tasks)
 
-    async def payment_process(self, data: Any) -> Dict[str, Any]:
+    async def get_payments(self) -> Union[List[str], None]:
         try:
-            payment_id = data["id"]
+            return self.redis_client.lpop("payment_queue", 100)
+
+        except Exception as e:
+            logger.error(f"Erro ao obter os pagamentos: {e}")
+
+    async def payment_process(self, data: Any) -> None:
+        try:
             amount = data["amount"]
-            correlation_id = data["correlation_id"]
+            correlation_id = data["correlationId"]
             requested_at = datetime.now(tz=timezone.utc)
 
             response_default = await self.task_process(
                 url=PAYMENT_DEFAULT,
-                paymentId=payment_id,
-                processorType=1,
+                processorType="default",
                 amount=amount,
                 correlationId=correlation_id,
                 requestedAt=requested_at,
@@ -68,8 +64,7 @@ class WorkerService:
             if not response_default:
                 response_fallback = await self.task_process(
                     url=PAYMENT_FALLBACK,
-                    paymentId=payment_id,
-                    processorType=2,
+                    processorType="fallback",
                     amount=amount,
                     correlationId=correlation_id,
                     requestedAt=requested_at,
@@ -81,7 +76,7 @@ class WorkerService:
         except Exception as e:
             logger.error(f"Erro ao processar o pagamento: {e}")
 
-    async def task_process(self, url: str, paymentId: int, processorType: int, amount: Decimal, correlationId: str, requestedAt: datetime) -> bool:
+    async def task_process(self, url: str, processorType: str, amount: Decimal, correlationId: str, requestedAt: datetime) -> bool:
         try:
             headers = {
                 "Content-Type": "application/json",
@@ -97,30 +92,17 @@ class WorkerService:
             response = await self.http_client.post(url, json=body, headers=headers)
 
             if response.status_code != 200:
-                if response.status_code != 422:
-                    logger.error(f"Erro ao processar o pagamento com o processador {processorType} - Status: {response.status_code} - Mensagem: {response.text}")
-                    return False
+                logger.error(f"Erro ao processar o pagamento com o processador {processorType} - Status: {response.status_code} - Mensagem: {response.text}")
+                return False
 
-            await self.update_status(payment_id=paymentId, process_type=processorType, requestedAt=requestedAt)
+            await self.update_status(body, processorType, int(time.mktime(requestedAt.timetuple())))
             return True
 
         except Exception as exc:
             logger.error(f"Erro ao processar o pagamento com o processador {processorType}: {exc}")
             return False
 
-    async def update_status(self, payment_id: int, process_type: int, requestedAt: datetime):
-        async with self.connection.connection() as conn:
-            async with conn.transaction():
-                await conn.execute(
-                    f"""update
-                            payments
-                        set
-                            was_processed = true,
-                            process_type = $1,
-                            requested_at = '{str(requestedAt.strftime("%Y-%m-%d %H:%M:%S"))}'
-                        where
-                            id = $2;""",
-                    process_type,
-                    payment_id,
-                )
-        logger.info(f"Pagamento processado com sucesso - {payment_id}")
+    async def update_status(self, body, process_type, timestamp):
+        self.redis_client.zadd(f"payment_processed_{process_type}", {json.dumps(body): timestamp})
+
+        logger.info(f"Pagamento processado com sucesso - {body} - payment_processed_{process_type}")
