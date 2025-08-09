@@ -3,6 +3,8 @@ import threading
 
 from services.worker import worker
 
+NUM_WORKERS = 10
+
 
 def main(thread_id: int):
     try:
@@ -18,14 +20,11 @@ def main(thread_id: int):
 
 
 if __name__ == "__main__":
-    thread1 = threading.Thread(target=main, args=(1,), name="WorkerThread-1")
-    thread2 = threading.Thread(target=main, args=(2,), name="WorkerThread-2")
-    thread3 = threading.Thread(target=main, args=(3,), name="WorkerThread-3")
+    threads = []
+    for i in range(NUM_WORKERS):
+        thread = threading.Thread(target=main, args=(i,), name=f"WorkerThread-{i}")
+        threads.append(thread)
+        thread.start()
 
-    thread1.start()
-    thread2.start()
-    thread3.start()
-
-    thread1.join()
-    thread2.join()
-    thread3.join()
+    for thread in threads:
+        thread.join()

@@ -1,11 +1,6 @@
 x-services-template:
   api: &api
-    build:
-      context: ./api
-      dockerfile: Dockerfile
-    volumes:
-      - ./api:/app
-    # image: juanlimalf/api-payment_processor-rinha_backend_2025:redis
+    image: juanlimalf/api-payment_processor-rinha_backend_2025:redis
     depends_on:
       - redis
     restart: unless-stopped
@@ -21,12 +16,7 @@ x-services-template:
           memory: 85M
 
   worker: &worker
-    build:
-      context: ./worker
-      dockerfile: Dockerfile
-    volumes:
-      - ./worker:/app
-    # image: juanlimalf/worker-payment_processor-rinha_backend_2025:redis
+    image: juanlimalf/worker-payment_processor-rinha_backend_2025:redis
     environment:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
@@ -84,6 +74,8 @@ services:
     restart: unless-stopped
     networks:
       - api
+    ports:
+      - "6379:6379"
     deploy:
       resources:
         limits:

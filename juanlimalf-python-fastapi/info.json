@@ -1,0 +1,17 @@
+{
+    "name": "Juan Lima Da Costa",
+    "social": [
+        "https://www.linkedin.com/in/juanlimalf/"
+    ],
+    "source-code-repo": "https://github.com/juanlimalf/payment_processor-rinha_backend",
+    "langs": [
+        "python"
+    ],
+    "storages": [
+        "postgresql",
+        "redis"
+    ],
+    "load-balancers": [
+        "nginx"
+    ]
+}
