@@ -3,6 +3,7 @@ import asyncio
 import uvicorn
 from fastapi import FastAPI
 
+from config import settings
 from router.router import router as app_router
 from services.payments import PublishService
 
@@ -37,10 +38,9 @@ async def run():
     )
     server = uvicorn.Server(config)
 
-    await asyncio.gather(
-        asyncio.create_task(server.serve()),
-        asyncio.create_task(publish_service.start_processing()),
-    )
+    workers = [publish_service.start_processing(n) for n in range(1, settings.NUM_WORKERS + 1)]
+
+    await asyncio.gather(asyncio.create_task(server.serve()), *workers)
 
 
 if __name__ == "__main__":

@@ -1,63 +1,38 @@
-x-services-template:
+services:
   api: &api
-    build:
-      context: ./api
-      dockerfile: Dockerfile
-    volumes:
-      - ./api:/app
-    # image: juanlimalf/api-payment_processor-rinha_backend_2025:redis
+    container_name: api
+    # build:
+    #   context: ./api
+    #   dockerfile: Dockerfile
+    # volumes:
+    #   - ./api:/app
+    image: juanlimalf/api-payment_processor-rinha_backend_2025:redis-1.1
     depends_on:
       - redis
     restart: unless-stopped
-    environment:
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-    networks:
-      - api
-    deploy:
-      resources:
-        limits:
-          cpus: '0.4'
-          memory: 85M
-
-  worker: &worker
-    build:
-      context: ./worker
-      dockerfile: Dockerfile
-    volumes:
-      - ./worker:/app
-    # image: juanlimalf/worker-payment_processor-rinha_backend_2025:redis
     environment:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - PAYMENT_PROCESSOR_DEFAULT=http://payment-processor-default:8080
       - PAYMENT_PROCESSOR_FALLBACK=http://payment-processor-fallback:8080
+      - NUM_WORKERS=15
+      - LOG_LEVEL=ERROR
     networks:
       - api
       - payment-processor
-    depends_on:
-      - redis
-      - api
-      - api2
-    restart: unless-stopped
     deploy:
       resources:
         limits:
-          cpus: '0.3'
-          memory: 90M
-
-services:
-  api:
-    <<: *api
-    container_name: api
+          cpus: '0.5'
+          memory: 75M
 
   api2:
     <<: *api
     container_name: api2
 
-  worker:
-    <<: *worker
-    container_name: worker
+  api3:
+    <<: *api
+    container_name: api3
 
   nginx:
     image: nginx:alpine
@@ -82,13 +57,15 @@ services:
     image: redis
     container_name: redis
     restart: unless-stopped
+    ports:
+      - "6379:6379"
     networks:
       - api
     deploy:
       resources:
         limits:
-          cpus: '0.2'
-          memory: 60M
+          cpus: '0.3'
+          memory: 95M
 
 networks:
   api:
