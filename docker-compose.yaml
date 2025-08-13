@@ -1,11 +1,6 @@
 services:
   api: &api
     container_name: api
-    # build:
-    #   context: ./api
-    #   dockerfile: Dockerfile
-    # volumes:
-    #   - ./api:/app
     image: juanlimalf/api-payment_processor-rinha_backend_2025:redis-1.1
     depends_on:
       - redis

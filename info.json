@@ -8,7 +8,6 @@
         "python"
     ],
     "storages": [
-        "postgresql",
         "redis"
     ],
     "load-balancers": [
