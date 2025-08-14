@@ -1,49 +1,38 @@
 import asyncio
 import json
-import logging
-import time
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from typing import Optional
 
-import httpx
-import redis
-
-from config import settings
+from config import logger, settings
 from schemas.schema import Payment, PaymentsTotals, Summary
+from services.http_client import http_client
+from services.redis_client import redis_client
 
 PAYMENT_DEFAULT = f"{settings.PAYMENT_PROCESSOR_DEFAULT}/payments"
 PAYMENT_FALLBACK = f"{settings.PAYMENT_PROCESSOR_FALLBACK}/payments"
-HEALTH_CHECK_DEFAULT = f"{settings.PAYMENT_PROCESSOR_DEFAULT}/payments/service-health"
-HEALTH_CHECK_FALLBACK = f"{settings.PAYMENT_PROCESSOR_FALLBACK}/payments/service-health"
 
 queue_payments = asyncio.Queue(maxsize=60_000)
-redis_client = redis.Redis(host=settings.REDIS_HOST, port=settings.REDIS_PORT, db=0)
-http_client = httpx.AsyncClient(
-    limits=httpx.Limits(max_connections=500, max_keepalive_connections=100),
-    timeout=httpx.Timeout(10.0, connect=10.0, read=10.0, write=10.0),
-    headers={"Content-Type": "application/json", "Accept": "application/json"},
-)
 
-logger = logging.getLogger("worker")
-logger.setLevel(level=settings.LOG_LEVEL)
-logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-)
+
+def iso_to_timestamp(iso_str: str) -> int:
+    dt = datetime.fromisoformat(iso_str.replace("Z", "+00:00"))
+
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    else:
+        dt = dt.astimezone(timezone.utc)
+
+    return int(dt.timestamp() * 1000)
 
 
 class PaymentService:
-    def _iso_to_timestamp(self, iso_str: str) -> int:
-        dt = datetime.strptime(iso_str.split(".")[0], "%Y-%m-%dT%H:%M:%S")
-
-        return int(time.mktime(dt.timetuple()))
-
     async def insert_payment(self, data: Payment):
         queue_payments.put_nowait(data)
 
     async def get_summary(self, from_date: Optional[str] = None, to_date: Optional[str] = None) -> Summary:
         if from_date and to_date:
-            from_ts = self._iso_to_timestamp(from_date)
-            to_ts = self._iso_to_timestamp(to_date)
+            from_ts = iso_to_timestamp(from_date)
+            to_ts = iso_to_timestamp(to_date)
 
             payments_default = redis_client.zrangebyscore("payment_processed_default", from_ts, to_ts)
             payments_fallback = redis_client.zrangebyscore("payment_processed_fallback", from_ts, to_ts)
@@ -66,54 +55,63 @@ class PaymentService:
         redis_client.flushdb()
 
 
-class PublishService:
-    async def start_processing(self, n: int):
-        logger.info(f"Iniciando o processamento de pagamentos...{n}")
+class WorkerConsumer:
+    def __init__(self) -> None:
+        self._status_default = True
+        self._status_fallback = True
+
+    async def start_processing(self, worker_id: int):
+        logger.info(f"Iniciando worker de processamento de pagamentos - Worker ID: {worker_id}")
 
         while True:
             try:
                 data: Payment = await queue_payments.get()
 
-                if data:
-                    await self.process_payment(data)
+                await self.process_payment(data)
+
+                queue_payments.task_done()
 
             except Exception as e:
                 print(e)
                 await queue_payments.put(data)
-            finally:
-                queue_payments.task_done()
 
     async def process_payment(self, data: Payment) -> None:
         amount = data.amount
         correlation_id = data.correlationId
-        requested_at = datetime.now(tz=timezone.utc) + timedelta(seconds=5)
+        requested_at = datetime.now(tz=timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
+
         logger.info(f"Iniciando processamento do pagamento - CorrelationId: {correlation_id} - Amount: {amount}")
 
-        response = None
-        response = await self.send_payment(
-            url=PAYMENT_DEFAULT,
-            processorType="default",
-            requestedAt=requested_at,
-            payment=data,
-        )
+        payment_processor_default_status = redis_client.get("payment_processor_default_status")
+        payment_processor_fallback_status = redis_client.get("payment_processor_fallback_status")
 
-        if not response:
+        response = None
+
+        if payment_processor_default_status:
+            response = await self.send_payment(
+                url=PAYMENT_DEFAULT,
+                processorType="default",
+                requestedAt=requested_at,
+                payment=data,
+            )
+
+        elif not response and payment_processor_fallback_status:
             response = await self.send_payment(
                 url=PAYMENT_FALLBACK,
                 processorType="fallback",
                 requestedAt=requested_at,
                 payment=data,
             )
-
-            if not response:
-                raise Exception("Serviços de pagamento indisponíveis")
+        else:
+            logger.error("Nenhum serviço de pagamento disponível para processar o pagamento.")
+            raise Exception("Nenhum serviço de pagamento disponível")
 
     async def send_payment(self, url: str, processorType: str, requestedAt: datetime, payment: Payment) -> bool:
         try:
             body = {
                 "correlationId": payment.correlationId,
                 "amount": float(payment.amount),
-                "requestedAt": requestedAt.isoformat().split(".")[0],
+                "requestedAt": requestedAt,
             }
 
             response = await http_client.post(url, json=body)
@@ -126,7 +124,7 @@ class PublishService:
 
                 return True
 
-            await self.update_status_payment(body, processorType, int(time.mktime(requestedAt.timetuple())))
+            await self.update_status_payment(body, processorType, iso_to_timestamp(requestedAt))
             return True
 
         except Exception as exc:

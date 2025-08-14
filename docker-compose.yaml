@@ -1,7 +1,10 @@
 services:
   api: &api
     container_name: api
-    image: juanlimalf/api-payment_processor-rinha_backend_2025:redis-1.1
+    # image: juanlimalf/api-payment_processor-rinha_backend_2025:redis-1.1
+    build:
+      context: ./api
+      dockerfile: Dockerfile
     depends_on:
       - redis
     restart: unless-stopped
@@ -10,7 +13,7 @@ services:
       - REDIS_PORT=6379
       - PAYMENT_PROCESSOR_DEFAULT=http://payment-processor-default:8080
       - PAYMENT_PROCESSOR_FALLBACK=http://payment-processor-fallback:8080
-      - NUM_WORKERS=15
+      - NUM_WORKERS=10
       - LOG_LEVEL=ERROR
     networks:
       - api
@@ -18,8 +21,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.5'
-          memory: 75M
+          cpus: '0.3'
+          memory: 80M
 
   api2:
     <<: *api
@@ -45,7 +48,7 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.2'
+          cpus: '0.3'
           memory: 30M
 
   redis:
@@ -60,7 +63,7 @@ services:
       resources:
         limits:
           cpus: '0.3'
-          memory: 95M
+          memory: 80M
 
 networks:
   api:

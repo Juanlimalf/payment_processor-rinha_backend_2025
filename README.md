@@ -31,11 +31,11 @@ O sistema é composto por múltiplos containers que trabalham em conjunto:
 
 | Container | CPU (cores) | Memória (MB) | Imagem | Função |
 |-----------|-------------|--------------|---------|---------|
-| **api** | 0.5 | 75 | Custom Build | API 1ª instância |
-| **api2** | 0.5 | 75 | Custom Build | API 2ª instância |
-| **api3** | 0.5 | 75 | Custom Build | API 3ª instância |
-| **nginx** | 0.2 | 30 | nginx:alpine | Load Balancer |
-| **redis** | 0.3 | 95 | redis | Cache/Message Broker |
+| **api** | 0.3 | 80 | Custom Build | API 1ª instância |
+| **api2** | 0.3 | 80 | Custom Build | API 2ª instância |
+| **api3** | 0.3 | 80 | Custom Build | API 3ª instância |
+| **nginx** | 0.3 | 30 | nginx:alpine | Load Balancer |
+| **redis** | 0.3 | 80 | redis | Cache/Message Broker |
 
 ### **Total de Recursos**
 - **CPU Total**: 1.50 cores
