@@ -45,6 +45,8 @@ services:
     <<: *payment-processor-db
     container_name: payment-processor-default-db
     hostname: payment-processor-default-db
+    ports:
+      - 5433:5432
 
   payment-processor-2:
     <<: *payment-processor

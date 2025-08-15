@@ -2,21 +2,26 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from config.postgresDB import AsyncPostgresDB
+from config import settings
+from infra.postgres_client import AsyncPostgresDB
 from router.router import router as app_router
+from services.consumer import WorkerConsumer
+from services.health_check import HealthCheckService
 
-conn = AsyncPostgresDB()
+consumer = WorkerConsumer()
+health_check_service = HealthCheckService()
+db = AsyncPostgresDB()
 
 
 @asynccontextmanager
-async def start_db(app: FastAPI):
-    print("Starting database")
-    await conn.init_pool()
-    await conn.create_table()
-
+async def lifespan(app: FastAPI):
+    await db.init_pool()
+    await db.create_table()
+    await health_check_service.init_data_status()
+    workers = [consumer.start_processing(n) for n in range(1, settings.NUM_WORKERS + 1)]
+    asyncio.gather(*workers, health_check_service.check_services())
     yield
-    await conn.close()
-    print("Closing database")
+    await db.close()
 
 
 app = FastAPI(
