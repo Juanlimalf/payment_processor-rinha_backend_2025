@@ -1,19 +1,14 @@
 from pydantic import BaseModel
 
 
-class Default(BaseModel):
-    totalRequests: int
-    totalAmount: float
-
-
-class Fallback(BaseModel):
+class PaymentsTotals(BaseModel):
     totalRequests: int
     totalAmount: float
 
 
 class Summary(BaseModel):
-    default: Default
-    fallback: Fallback
+    default: PaymentsTotals
+    fallback: PaymentsTotals
 
 
 class Payment(BaseModel):

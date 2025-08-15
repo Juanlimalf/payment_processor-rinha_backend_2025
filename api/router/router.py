@@ -15,7 +15,7 @@ async def get_service():
 
 @router.post("/payments", status_code=status.HTTP_202_ACCEPTED)
 async def router_app(payload: Payment, service: PaymentService = Depends(get_service)):
-    asyncio.create_task(service.insert_payment(payload))
+    asyncio.create_task(service.insert_payment(data=payload))
 
 
 @router.get("/payments-summary", status_code=status.HTTP_200_OK)

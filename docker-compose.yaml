@@ -7,11 +7,12 @@ services:
       dockerfile: Dockerfile
     depends_on:
       - postgres
+      - pgbouncer
     restart: unless-stopped
     environment:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      - DATABASE_URL=postgresql://postgres:postgres@pgbouncer:6432/appdb
+      - DATABASE_URL=postgresql://postgres:postgres@pgbouncer:5432/postgres
       - PAYMENT_PROCESSOR_DEFAULT=http://payment-processor-default:8080
       - PAYMENT_PROCESSOR_FALLBACK=http://payment-processor-fallback:8080
       - NUM_WORKERS=20
@@ -49,7 +50,7 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.3'
+          cpus: '0.2'
           memory: 30M
 
   postgres:
@@ -68,7 +69,7 @@ services:
       resources:
         limits:
           cpus: '0.3'
-          memory: 80M
+          memory: 70M
     command: postgres -c max_connections=20 -c shared_buffers=16MB -c work_mem=1MB -c maintenance_work_mem=16MB -c temp_buffers=1MB -c wal_level=minimal -c max_wal_senders=0 -c checkpoint_timeout=30min -c max_wal_size=1GB -c checkpoint_completion_target=0.9 -c synchronous_commit=off -c jit=off -c autovacuum=on -c autovacuum_naptime=60s -c autovacuum_vacuum_scale_factor=0.2 -c autovacuum_analyze_scale_factor=0.1 -c log_min_duration_statement=500ms -c log_checkpoints=off -c log_autovacuum_min_duration=-1
 
     healthcheck:
@@ -87,6 +88,7 @@ services:
       DB_USER: postgres
       DB_PASSWORD: postgres
       POOL_MODE: transaction
+      AUTH_TYPE: scram-sha-256
       MAX_CLIENT_CONN: 300
       DEFAULT_POOL_SIZE: 5
       RESERVE_POOL_SIZE: 2
@@ -101,6 +103,17 @@ services:
         condition: service_healthy
     networks:
       - api
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=postgres
+    deploy:
+      resources:
+        limits:
+          cpus: '0.1'
+          memory: 10M
 
 networks:
   api:

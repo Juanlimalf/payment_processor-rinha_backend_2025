@@ -1,3 +1,4 @@
+import asyncio
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -30,7 +31,7 @@ app = FastAPI(
     openapi_url=None,
     title="Payment Processor API",
     description="API for processing payments in the Rinha de Backend",
-    lifespan=start_db,
+    lifespan=lifespan,
 )
 
 app.include_router(app_router)
