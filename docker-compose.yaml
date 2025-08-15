@@ -16,7 +16,7 @@ services:
       - PAYMENT_PROCESSOR_DEFAULT=http://payment-processor-default:8080
       - PAYMENT_PROCESSOR_FALLBACK=http://payment-processor-fallback:8080
       - NUM_WORKERS=20
-      - LOG_LEVEL=ERROR
+      - LOG_LEVEL=INFO
     networks:
       - api
       - payment-processor
@@ -59,8 +59,6 @@ services:
     restart: unless-stopped
     networks:
       - api
-    ports:
-      - "5432:5432"
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
@@ -96,8 +94,6 @@ services:
       IGNORE_STARTUP_PARAMETERS: "extra_float_digits"
       IDLE_TRANSACTION_TIMEOUT: "15"
       QUERY_TIMEOUT: "60"
-    ports:
-      - "6432:6432"
     depends_on:
       postgres:
         condition: service_healthy
@@ -105,10 +101,6 @@ services:
       - api
     ports:
       - "5432:5432"
-    environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=postgres
     deploy:
       resources:
         limits:

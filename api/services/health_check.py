@@ -31,7 +31,11 @@ class HealthCheckService:
         try:
             async with self.db.connection() as conn:
                 await conn.execute(
-                    """insert into services (id, service_default, service_fallback) values ($1, $2, $3)""",
+                    """INSERT INTO 
+                            services (id, service_default, service_fallback)
+                        VALUES
+                            ($1, $2, $3)
+                        ON CONFLICT (id) DO NOTHING""",
                     1,
                     True,
                     True,

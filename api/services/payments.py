@@ -44,7 +44,7 @@ class PaymentService:
 
                     stmt += """group by
                         p.process_type;"""
-                    print(stmt)
+
                     results = await conn.fetch(stmt, *params)
 
             for row in results:

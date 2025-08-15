@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from datetime import datetime, timezone
 
@@ -26,15 +27,15 @@ class WorkerConsumer:
         self.redis_client = RedisClient().get_client()
         self.http_client = HttpClient().get_client()
         self.db = AsyncPostgresDB()
+        self._semaphore = asyncio.Semaphore(90)
 
-    async def start_processing(self, worker_id: int):
-        logger.info(f"Iniciando worker de processamento de pagamentos - Worker ID: {worker_id}")
-
+    async def start_processing(self):
         while True:
             try:
                 data: Payment = await queue_payments.get()
 
-                await self.process_payment(data)
+                async with self._semaphore:
+                    await self.process_payment(data)
 
                 queue_payments.task_done()
 
@@ -43,7 +44,7 @@ class WorkerConsumer:
                 await queue_payments.put(data)
 
     async def process_payment(self, data: Payment) -> None:
-        await self.get_payment_status()
+        # await self.get_payment_status()
         amount = data.amount
         correlation_id = data.correlationId
         requested_at = datetime.now(tz=timezone.utc).isoformat().replace("+00:00", "Z")
@@ -60,7 +61,7 @@ class WorkerConsumer:
                 payment=data,
             )
 
-        elif not response and self._status_fallback:
+        if not response and self._status_fallback:
             response = await self.send_payment(
                 url=PAYMENT_FALLBACK,
                 processorType="fallback",

@@ -12,7 +12,7 @@ class AsyncPostgresDB:
     __session_pool: Union[asyncpg.Pool, None] = None
     __dsn = settings.DATABASE_URL
 
-    async def init_pool(self, min_size=1, max_size=15):
+    async def init_pool(self, min_size=1, max_size=20):
         if self.__session_pool is None:
             self.__session_pool = await asyncpg.create_pool(self.__dsn, min_size=min_size, max_size=max_size)
 

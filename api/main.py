@@ -19,8 +19,10 @@ async def lifespan(app: FastAPI):
     await db.init_pool()
     await db.create_table()
     await health_check_service.init_data_status()
-    workers = [consumer.start_processing(n) for n in range(1, settings.NUM_WORKERS + 1)]
-    asyncio.gather(*workers, health_check_service.check_services())
+    asyncio.gather(
+        *[consumer.start_processing() for _ in range(50)],
+        # health_check_service.check_services(),
+    )
     yield
     await db.close()
 
@@ -40,19 +42,3 @@ app.include_router(app_router)
 @app.get("/")
 async def root():
     return {"message": "Benvindo a Api do Rinha de Backend 2025 - Payment Processor by Juan Lima"}
-
-
-# if __name__ == "__main__":
-#     config = uvicorn.Config(
-#         app,
-#         host="0.0.0.0",
-#         port=8000,
-#         workers=2,
-#         access_log=False,
-#         server_header=False,
-#         date_header=False,
-#     )
-
-#     server = uvicorn.Server(config)
-
-#     server.run()
