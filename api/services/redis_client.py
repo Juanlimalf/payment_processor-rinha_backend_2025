@@ -1,5 +1,4 @@
 import redis
-
 from config import settings
 
 
@@ -12,6 +11,3 @@ class RedisClient:
 
     def get_client(self):
         return self.redis_client
-
-
-redis_client = RedisClient().get_client()

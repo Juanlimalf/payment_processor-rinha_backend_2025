@@ -13,6 +13,3 @@ class HttpClient:
 
     def get_client(self):
         return self.http_client
-
-
-http_client = HttpClient().get_client()
